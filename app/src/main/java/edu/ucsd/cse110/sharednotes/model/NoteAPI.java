@@ -113,7 +113,7 @@ public class NoteAPI {
         Log.i("Test", toJson(note));
         var request = new Request.Builder()
                 .url("https://sharednotes.goto.ucsd.edu/notes/" + title)
-                .post(body)
+                .method("PUT", body)
                 .build();
         var executor = Executors.newSingleThreadExecutor();
         executor.execute(() ->{
