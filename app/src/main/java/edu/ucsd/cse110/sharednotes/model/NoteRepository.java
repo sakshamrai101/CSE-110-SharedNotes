@@ -7,10 +7,12 @@ import androidx.lifecycle.Observer;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class NoteRepository {
     private final NoteDao dao;
@@ -106,7 +108,15 @@ public class NoteRepository {
 
         var executor = Executors.newSingleThreadScheduledExecutor();
         poller = executor.scheduleAtFixedRate(() -> {
-            bgThread.postValue(noteAPI.get(title));
+            try {
+                bgThread.postValue(noteAPI.getNote(title));;
+            } catch (ExecutionException e) {
+                throw new RuntimeException(e);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            } catch (TimeoutException e) {
+                throw new RuntimeException(e);
+            }
         }, 0, 3000, TimeUnit.MILLISECONDS);
 
         return bgThread;
@@ -123,7 +133,7 @@ public class NoteRepository {
     public void upsertRemote(Note note) {
         // TODO: Implement upsertRemote!
         if(note != null) {
-            noteAPI.post("https://sharednotes.goto.ucsd.edu/notes/", note.content);
+            noteAPI.putNote(note);
         }
 //        throw new UnsupportedOperationException("Not implemented yet");
     }

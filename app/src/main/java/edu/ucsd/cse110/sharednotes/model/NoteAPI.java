@@ -8,8 +8,13 @@ import androidx.annotation.WorkerThread;
 
 import com.google.gson.Gson;
 
+import java.io.IOException;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
@@ -69,21 +74,24 @@ public class NoteAPI {
         }
     }
 
-    Note get(String title){
+    Note getNote(String title) throws ExecutionException, InterruptedException, TimeoutException {
         title = title.replace(" ", "%20");
         var request = new Request.Builder()
                 .url("https://sharednotes.goto.ucsd.edu/notes/" +title)
                 .method("GET", null)
                 .build();
 
-        try (var response = client.newCall(request).execute()) {
+        var executor = Executors.newSingleThreadExecutor();
+        Callable<Note> callable = () ->{
+            var response = client.newCall(request).execute();
             assert response.body() != null;
             var body = response.body().string();
+            Log.i("GET NOTE", body);
             return Note.fromJSON(body);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return null;
+        };
+        Future<Note> noteFuture = executor.submit(callable);
+        Note note = noteFuture.get(1, TimeUnit.SECONDS);
+        return note;
     }
     String post(String url, String json)  {
         RequestBody body = RequestBody.create(json, JSON);
@@ -98,6 +106,38 @@ public class NoteAPI {
         }
         return null;
     }
+
+    public void putNote(Note note){
+        var title = note.title.replace(" ", "%20");
+        var body = RequestBody.create(toJson(note), JSON);
+        Log.i("Test", toJson(note));
+        var request = new Request.Builder()
+                .url("https://sharednotes.goto.ucsd.edu/notes/" + title)
+                .post(body)
+                .build();
+        var executor = Executors.newSingleThreadExecutor();
+        executor.execute(() ->{
+            String body1 = "";
+            try {
+                Response response = client.newCall(request).execute();
+                assert response.body() != null;
+                body1 = response.body().string();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            Log.i("PUT NOTE", body1);
+        });
+
+
+    }
+
+    public String toJson(Note note) {
+        String toJson = "{  " + "\"content\":" + "\"" + note.content + "\"" + "," + "\"version\":" + "\"" + note.version + "\"" + "}";
+        Log.i("Formatted Json", toJson);
+        return toJson;
+
+    }
+
 
     @AnyThread
     public Future<String> echoAsync(String msg) {
